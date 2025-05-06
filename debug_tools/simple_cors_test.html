@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple CORS Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        #output {
+            background-color: #f4f4f4;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+            min-height: 100px;
+            white-space: pre-wrap;
+            overflow-x: auto;
+        }
+        button {
+            margin: 10px 5px;
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        h1 {
+            color: #333;
+        }
+        .note {
+            background-color: #fffde7;
+            padding: 10px;
+            border-left: 4px solid #ffd600;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Simple CORS Test</h1>
+    
+    <div class="note">
+        <p>This page will test connections to your backend at <span id="apiUrlDisplay">http://127.0.0.1:5070</span></p>
+        <p>If you need to change the backend port: 
+            <input type="number" id="portInput" value="5070" style="width: 70px;">
+            <button onclick="updatePort()">Update Port</button>
+        </p>
+    </div>
+    
+    <div>
+        <button onclick="testHealth()">Test Health</button>
+        <button onclick="startConversation()">Start Conversation</button>
+        <button onclick="testWithXhr()">Test with XHR</button>
+        <button onclick="testWithFetch()">Test with CORS Mode</button>
+        <button onclick="tryAllIPs()">Try All IPs</button>
+    </div>
+    
+    <div id="output">Results will appear here...</div>
+    
+    <script>
+        const output = document.getElementById('output');
+        const apiUrlDisplay = document.getElementById('apiUrlDisplay');
+        let API_URL = 'http://127.0.0.1:5070';  // Use proxy by default
+        let conversationId = null;
+        
+        // Try different IP addresses
+        const alternateIPs = [
+            'http://127.0.0.1:5070',  // Proxy (should work)
+            'http://localhost:5070',  // Proxy with localhost
+            'http://127.0.0.1:5060',  // Direct backend
+            'http://localhost:5060',  // Direct backend with localhost
+            `http://${window.location.hostname}:5060`  // Try the same hostname as the page
+        ];
+        
+        function updatePort() {
+            const port = document.getElementById('portInput').value;
+            API_URL = `http://127.0.0.1:${port}`;
+            apiUrlDisplay.textContent = API_URL;
+            output.innerHTML = `API URL updated to: ${API_URL}`;
+        }
+        
+        function displayResult(title, result) {
+            output.innerHTML = `<strong>${title}:</strong>\n${JSON.stringify(result, null, 2)}`;
+        }
+        
+        function displayError(title, error) {
+            output.innerHTML = `<strong>${title} ERROR:</strong>\n${error.message}\n\n`;
+            
+            if (error.message === 'Failed to fetch') {
+                output.innerHTML += `
+                Common causes for 'Failed to fetch':
+                1. The backend server at ${API_URL} is not running
+                2. There is a network connectivity issue between your browser and the server
+                3. A CORS policy is blocking the request
+                4. There's a security feature or firewall blocking the connection
+                
+                Try these solutions:
+                - Confirm your backend is running (check terminal)
+                - Make sure there's no proxy or VPN interfering
+                - Try using the "Test with XHR" or "Test with CORS Mode" buttons
+                - Open your browser's dev tools (F12) and check the Network tab for more details
+                `;
+            }
+            
+            console.error(error);
+        }
+        
+        async function testHealth() {
+            try {
+                output.innerHTML = 'Testing health endpoint...';
+                const response = await fetch(`${API_URL}/health`);
+                const data = await response.json();
+                displayResult('Health Check', data);
+            } catch (error) {
+                displayError('Health Check', error);
+            }
+        }
+        
+        async function startConversation() {
+            try {
+                output.innerHTML = 'Starting conversation...';
+                const response = await fetch(`${API_URL}/api/conversations`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ turns: 3 })
+                });
+                const data = await response.json();
+                conversationId = data.conversation_id;
+                displayResult('Conversation Started', data);
+            } catch (error) {
+                displayError('Start Conversation', error);
+            }
+        }
+        
+        // Alternative test using XMLHttpRequest
+        function testWithXhr() {
+            output.innerHTML = 'Testing health with XMLHttpRequest...';
+            
+            const xhr = new XMLHttpRequest();
+            xhr.open('GET', `${API_URL}/health`);
+            
+            xhr.onload = function() {
+                if (xhr.status === 200) {
+                    try {
+                        const data = JSON.parse(xhr.responseText);
+                        displayResult('XHR Test', data);
+                    } catch (e) {
+                        displayError('XHR Parse', e);
+                    }
+                } else {
+                    displayError('XHR Request', new Error(`Status ${xhr.status}: ${xhr.statusText}`));
+                }
+            };
+            
+            xhr.onerror = function() {
+                displayError('XHR Request', new Error('Network error occurred'));
+                output.innerHTML += `\nDETAIL: This indicates the request was blocked before reaching the server.`;
+            };
+            
+            xhr.send();
+        }
+        
+        // Test with explicit CORS mode
+        async function testWithFetch() {
+            try {
+                output.innerHTML = 'Testing with explicit CORS mode...';
+                const response = await fetch(`${API_URL}/health`, {
+                    mode: 'cors',  // Explicit CORS mode
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                });
+                const data = await response.json();
+                displayResult('CORS Mode Test', data);
+            } catch (error) {
+                displayError('CORS Mode Test', error);
+            }
+        }
+        
+        // Function to try connecting to all alternative IPs
+        async function tryAllIPs() {
+            output.innerHTML = 'Trying to connect to backend on different addresses...\n';
+            
+            for (const url of alternateIPs) {
+                try {
+                    output.innerHTML += `\nTrying ${url}/health... `;
+                    const response = await fetch(`${url}/health`, { 
+                        mode: 'cors',
+                        headers: { 'Accept': 'application/json' }
+                    });
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        output.innerHTML += `✅ SUCCESS!\n`;
+                        output.innerHTML += `Found working backend at: ${url}\n`;
+                        output.innerHTML += `Response: ${JSON.stringify(data, null, 2)}\n`;
+                        
+                        // Update the API URL to use this working URL
+                        API_URL = url;
+                        apiUrlDisplay.textContent = API_URL;
+                        return true;
+                    } else {
+                        output.innerHTML += `❌ Failed (Status: ${response.status})\n`;
+                    }
+                } catch (error) {
+                    output.innerHTML += `❌ Error: ${error.message}\n`;
+                }
+            }
+            
+            output.innerHTML += `\nCould not connect to backend on any of the tried addresses.\n`;
+            output.innerHTML += `Please check that the backend is running and accessible.`;
+            return false;
+        }
+        
+        // Add a button for trying all IPs
+        document.addEventListener('DOMContentLoaded', function() {
+            const div = document.querySelector('div');
+            const button = document.createElement('button');
+            button.textContent = 'Try All IPs';
+            button.onclick = tryAllIPs;
+            div.appendChild(button);
+        });
+    </script>
+</body>
+</html> 

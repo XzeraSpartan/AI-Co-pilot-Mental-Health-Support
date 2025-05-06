@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CORS Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .output {
+            background-color: #f4f4f4;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+            min-height: 100px;
+            white-space: pre-wrap;
+        }
+        button {
+            margin: 10px 0;
+            padding: 8px 16px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <h1>CORS Test for AI Co-Pilot API</h1>
+    <div>
+        <button id="healthCheck">Test Health Check</button>
+        <button id="startConversation">Start Conversation</button>
+        <button id="fetchEvents">Fetch Events</button>
+        <button id="preflight">Test Preflight</button>
+    </div>
+    <div class="output" id="output">Results will appear here...</div>
+
+    <script>
+        const API_URL = 'http://127.0.0.1:5060';
+        let conversationId = null;
+        const output = document.getElementById('output');
+
+        // Test health check endpoint
+        document.getElementById('healthCheck').addEventListener('click', async () => {
+            try {
+                output.textContent = 'Testing health check endpoint...\n';
+                const response = await fetch(`${API_URL}/health`);
+                const data = await response.json();
+                output.textContent += `Status: ${response.status}\n`;
+                output.textContent += `Headers: ${JSON.stringify(Object.fromEntries([...response.headers]), null, 2)}\n`;
+                output.textContent += `Data: ${JSON.stringify(data, null, 2)}`;
+            } catch (error) {
+                output.textContent += `Error: ${error.message}`;
+                console.error(error);
+            }
+        });
+
+        // Test start conversation endpoint
+        document.getElementById('startConversation').addEventListener('click', async () => {
+            try {
+                output.textContent = 'Starting conversation...\n';
+                const response = await fetch(`${API_URL}/api/conversations`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ turns: 3 })
+                });
+                const data = await response.json();
+                conversationId = data.conversation_id;
+                output.textContent += `Status: ${response.status}\n`;
+                output.textContent += `Headers: ${JSON.stringify(Object.fromEntries([...response.headers]), null, 2)}\n`;
+                output.textContent += `Data: ${JSON.stringify(data, null, 2)}`;
+            } catch (error) {
+                output.textContent += `Error: ${error.message}`;
+                console.error(error);
+            }
+        });
+
+        // Test fetch events endpoint
+        document.getElementById('fetchEvents').addEventListener('click', async () => {
+            if (!conversationId) {
+                output.textContent = 'Please start a conversation first!';
+                return;
+            }
+            
+            try {
+                output.textContent = 'Fetching events...\n';
+                const response = await fetch(`${API_URL}/api/conversations/${conversationId}/events?last_index=0`);
+                const data = await response.json();
+                output.textContent += `Status: ${response.status}\n`;
+                output.textContent += `Headers: ${JSON.stringify(Object.fromEntries([...response.headers]), null, 2)}\n`;
+                output.textContent += `Data: ${JSON.stringify(data, null, 2)}`;
+            } catch (error) {
+                output.textContent += `Error: ${error.message}`;
+                console.error(error);
+            }
+        });
+
+        // Test preflight request
+        document.getElementById('preflight').addEventListener('click', async () => {
+            try {
+                output.textContent = 'Testing preflight request...\n';
+                
+                // Make a custom request that will trigger a preflight
+                const response = await fetch(`${API_URL}/api/conversations`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Custom-Header': 'test' // This will trigger a preflight
+                    },
+                    body: JSON.stringify({ turns: 1 })
+                });
+                
+                const data = await response.json();
+                output.textContent += `Status: ${response.status}\n`;
+                output.textContent += `Headers: ${JSON.stringify(Object.fromEntries([...response.headers]), null, 2)}\n`;
+                output.textContent += `Data: ${JSON.stringify(data, null, 2)}`;
+            } catch (error) {
+                output.textContent += `Error: ${error.message}`;
+                console.error(error);
+            }
+        });
+    </script>
+</body>
+</html> 

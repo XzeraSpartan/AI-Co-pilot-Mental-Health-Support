@@ -1,6 +1,5 @@
 from flask import Flask, jsonify, request, Response, stream_with_context
 from flask_cors import CORS
-from flask_socketio import SocketIO, emit
 import json
 import uuid
 import time
@@ -10,10 +9,6 @@ import logging
 import sys
 import os
 import traceback
-import eventlet
-
-# Patch eventlet for better WebSocket support
-eventlet.monkey_patch()
 
 # Add parent directory to path so we can import from other packages
 sys.path.append(os.path.join(os.path.dirname(__file__), '../../'))
@@ -32,11 +27,6 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-socketio = SocketIO(app, 
-                   cors_allowed_origins=ALLOWED_ORIGINS,
-                   async_mode='eventlet',
-                   logger=True,
-                   engineio_logger=True)
 
 # Debug middleware to log all requests
 @app.before_request
@@ -50,10 +40,6 @@ def log_request_info():
 ALLOWED_ORIGINS = [
     "https://mentalcopilot.netlify.app",
     "https://mentalcopilot.netlify.app/",
-    "https://cpmhs.harshrajj.com",
-    "https://cpmhs.harshrajj.com/",
-    "https://cpmhs-backup.harshrajj.com",
-    "https://cpmhs-backup.harshrajj.com/",
     "http://localhost:5173", 
     "https://localhost:5173",
     "http://localhost:3000",
@@ -109,7 +95,7 @@ class Conversation:
         logger.info(f"Conversation created: {conversation_id}")
     
     def add_event(self, event):
-        """Add an event to the conversation and emit it via WebSocket."""
+        """Add an event to the conversation."""
         with self.lock:
             # Add event ID if not present
             if 'id' not in event:
@@ -140,9 +126,6 @@ class Conversation:
                     event['sender'] = event.get('speaker', 'student')
             
             self.events.append(event)
-            
-            # Emit the event via WebSocket
-            socketio.emit(f'conversation_{self.conversation_id}', event)
             
             # If it's a message, add to conversation history
             if event.get('type') == 'message':
@@ -342,30 +325,6 @@ class Conversation:
                 "educator": EDUCATOR_NAME
             }
         }
-
-# WebSocket event handlers
-@socketio.on('connect')
-def handle_connect():
-    """Handle WebSocket connection."""
-    logger.info('Client connected')
-
-@socketio.on('disconnect')
-def handle_disconnect():
-    """Handle WebSocket disconnection."""
-    logger.info('Client disconnected')
-
-@socketio.on('join_conversation')
-def handle_join_conversation(data):
-    """Handle joining a conversation."""
-    conversation_id = data.get('conversation_id')
-    if conversation_id in active_conversations:
-        logger.info(f'Client joined conversation: {conversation_id}')
-        # Send all existing events to the client
-        conversation = active_conversations[conversation_id]
-        for event in conversation.events:
-            emit('conversation_event', event)
-    else:
-        logger.warning(f'Attempted to join non-existent conversation: {conversation_id}')
 
 @app.route('/api/conversations', methods=['POST'])
 def start_conversation():
@@ -640,17 +599,10 @@ if __name__ == '__main__':
         logger.error(f"Error checking SSL certificates: {e}")
         logger.warning("Running without SSL - CORS may not work in production!")
     
-    try:
-        # Run the app with SocketIO
-        socketio.run(
-            app,
-            debug=DEBUG_MODE,
-            host='0.0.0.0',
-            port=SERVER_PORT,
-            ssl_context=ssl_context,
-            use_reloader=False  # Disable reloader in production
-        )
-    except Exception as e:
-        logger.error(f"Failed to start server: {e}")
-        logger.error(traceback.format_exc())
-        sys.exit(1)
+    # Run the app with or without SSL depending on certificate availability
+    app.run(
+        debug=DEBUG_MODE, 
+        host='0.0.0.0', 
+        port=SERVER_PORT,
+        ssl_context=ssl_context
+    )

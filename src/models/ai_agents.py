@@ -47,10 +47,18 @@ def simulate_student_turn(conversation_history: List[Dict[str, str]]) -> str:
         conversation_history=history_text
     )
     
-    # Get response from model
+    # Get response from model with system message
     response = together.chat.completions.create(
         model=STUDENT_MODEL,
-        messages=[{"role": "user", "content": prompt}]
+        messages=[
+            {"role": "system", "content": "You are a student speaking to a counselor. Respond ONLY in character, with NO meta-commentary or thinking process."},
+            {"role": "user", "content": prompt}
+        ],
+        max_tokens=150,
+        temperature=0.7,
+        top_k=50,
+        top_p=0.7,
+        repetition_penalty=1.1
     )
     
     return response.choices[0].message.content.strip()
@@ -61,26 +69,15 @@ def get_mini_ai_feedback(conversation_history: List[Dict[str, str]]) -> Dict:
     history_text = format_conversation_history(conversation_history)
     
     # Generate prompt
-    prompt = """Analyze the following conversation between a student and counselor.
-Focus on:
-1. Student's emotional state and key concerns
-2. Potential risk factors
-3. Suggested next questions for the counselor
-
-Provide:
-1. A brief analysis of the student's current state
-2. Three specific, open-ended questions the counselor could ask next
-3. Any warning signs or concerns to address
-
-Conversation:
-{conversation}
-
-Analysis:"""
+    prompt = FEEDBACK_PROMPT_TEMPLATE.format(conversation=history_text)
     
-    # Get response from model
+    # Get response from model with system message
     response = together.chat.completions.create(
         model=FEEDBACK_MODEL,
-        messages=[{"role": "user", "content": prompt}],
+        messages=[
+            {"role": "system", "content": "You are an expert counselor providing analysis. Give ONLY the analysis in the specified format, with NO meta-commentary."},
+            {"role": "user", "content": prompt}
+        ],
         max_tokens=300,
         temperature=0.7,
         top_k=50,
@@ -92,10 +89,20 @@ Analysis:"""
     
     # Parse the response to extract questions
     questions = []
+    in_questions_section = False
     lines = analysis.split('\n')
+    
     for line in lines:
-        if line.strip().startswith(('1.', '2.', '3.')):
-            questions.append(line.strip()[2:].strip())
+        line = line.strip()
+        if line.startswith('3. Suggested Questions:'):
+            in_questions_section = True
+            continue
+        elif in_questions_section and line.startswith('4. Warning Signs:'):
+            break
+        elif in_questions_section and line and line[0].isdigit() and line.endswith('?'):
+            # Extract just the question part (remove the number and dot)
+            question = line.split('.', 1)[1].strip()
+            questions.append(question)
     
     return {
         "analysis": analysis,

@@ -29,48 +29,26 @@ STUDENT_NAME = "Alex"
 EDUCATOR_NAME = "Ms. Morgan"
 
 # Model Configuration
-STUDENT_MODEL = "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8"  # Using Mixtral model with higher rate limits
-EDUCATOR_MODEL = "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8"  # Using Mixtral model with higher rate limits
-FEEDBACK_MODEL = "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8"  # Using Mixtral model with higher rate limits
+STUDENT_MODEL = "meta-llama/Llama-3.3-70B-Instruct-Turbo-Free"  # Using Llama 3.3 70B for better responses
+EDUCATOR_MODEL = "meta-llama/Llama-3.3-70B-Instruct-Turbo-Free"  # Using Llama 3.3 70B for better responses
+FEEDBACK_MODEL = "meta-llama/Llama-3.3-70B-Instruct-Turbo-Free"  # Using Llama 3.3 70B for better responses
 
 # Prompt Templates
-STUDENT_PROMPT_TEMPLATE = """You are {student_name}, a high school student talking to your school counselor {educator_name}.
+STUDENT_PROMPT_TEMPLATE = """[IMPORTANT: Respond ONLY in character as the student. Do not include any thinking, planning, or meta-commentary. No <think> tags.]
+
+You are {student_name}, a high school student talking to your school counselor {educator_name}.
 You are experiencing mental health challenges and seeking support.
 
-Your Character:
+Character Details:
 - Age: 15-17 years old
-- Personality: Generally quiet, thoughtful, but struggling with current challenges
-- Communication Style: Uses natural teenage speech patterns with occasional pauses and self-corrections
+- Personality: Quiet, thoughtful, struggling with anxiety/depression
+- Speaking Style: Natural teenage speech with filler words ("like", "um", "you know")
 
-Response Guidelines:
-1. Keep responses natural and conversational (2-3 sentences)
-2. Use authentic teenage language:
-   - Filler words ("like", "you know", "I guess")
-   - Informal expressions ("kinda", "sorta", "yeah")
-   - Self-corrections ("I mean...", "actually...")
-3. Include body language and emotions in *asterisks*
-4. Show emotional depth through:
-   - Subtle expressions of anxiety/depression
-   - Gradual opening up about feelings
-   - Moments of vulnerability
-5. Make responses feel genuine by:
-   - Including specific details about your situation
-   - Expressing uncertainty when appropriate
-   - Showing emotional reactions to the counselor's words
-
-Conversation Flow:
-1. First turn: Share your main concern naturally
-2. Subsequent turns: 
-   - Respond to counselor's questions
-   - Gradually reveal more about your feelings
-   - Show progress in understanding your situation
-3. Final turn:
-   - Show signs of improvement
-   - Express appreciation for the support
-   - Indicate willingness to continue working on your challenges
+Format your response EXACTLY like this example:
+"*fidgets with sleeve* Um, I've been feeling really overwhelmed lately... Like, I can't focus in class anymore, and my grades are dropping. *looks down* I just don't know what to do."
 
 Previous conversation: {conversation_history}
-Your response:"""
+Respond as {student_name}:"""
 
 EDUCATOR_PROMPT_TEMPLATE = """You are {educator_name}, a caring and professional high school counselor.
 You are speaking with {student_name}, a student who needs support.
@@ -115,53 +93,35 @@ Previous conversation: {conversation_history}
 Latest feedback: {feedback}
 Your response:"""
 
-FEEDBACK_PROMPT_TEMPLATE = """Analyze the following conversation between a student and counselor.
-Your role is to provide actionable insights and specific questions for the counselor.
+FEEDBACK_PROMPT_TEMPLATE = """[IMPORTANT: Provide ONLY the analysis in the exact format below. No meta-commentary.]
 
-Focus Areas:
-1. Student's Emotional State:
-   - Current emotional indicators
-   - Changes in emotional state
-   - Signs of progress or concern
-
-2. Key Concerns:
-   - Main issues discussed
-   - Underlying problems
-   - Risk factors identified
-
-3. Suggested Questions:
-   - Provide exactly 3 specific, open-ended questions
-   - Questions should be:
-     * Relevant to the current conversation
-     * Focused on understanding the student better
-     * Designed to guide the conversation forward
-   - Format each question as a complete sentence ending with a question mark
-
-4. Warning Signs:
-   - Any concerning behaviors or statements
-   - Potential risk factors
-   - Areas needing immediate attention
-
-Format your response as follows:
+Analyze this counseling conversation and provide EXACTLY these four sections:
 
 1. Emotional State:
-[Brief analysis of student's current emotional state]
+[2-3 clear sentences about current emotions]
 
 2. Key Concerns:
-[List of main issues and concerns]
+- [Specific issue 1]
+- [Specific issue 2]
+- [Specific issue 3]
 
 3. Suggested Questions:
-1. [First specific question]
-2. [Second specific question]
-3. [Third specific question]
+1. [Question about triggers/causes]?
+2. [Question about impact on daily life]?
+3. [Question about support/coping]?
 
 4. Warning Signs:
-[List any concerning indicators]
+- [Specific concern 1]
+- [Specific concern 2]
+- [Specific concern 3]
+
+IMPORTANT: Each question must be a complete sentence ending with a question mark.
+Do not include any section headers in the questions list.
 
 Conversation:
 {conversation}
 
-Analysis:"""
+Provide your analysis in EXACTLY this format:"""
 
 # Export all variables
 __all__ = [

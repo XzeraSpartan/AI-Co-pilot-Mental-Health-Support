@@ -10,6 +10,7 @@ import os
 # Add parent directory to path so we can import from other packages
 sys.path.append(os.path.dirname(__file__))
 from src.models.ai_agents import simulate_student_turn, get_mini_ai_feedback, together
+from src.config.config import TOGETHER_API_KEY
 
 # Set up logging
 logging.basicConfig(
@@ -20,6 +21,9 @@ logging.basicConfig(
     ]
 )
 logger = logging.getLogger(__name__)
+
+# Debug: Check if API key is loaded
+logger.info(f"API Key loaded: {'Yes' if TOGETHER_API_KEY and TOGETHER_API_KEY != 'your-together-api-key' else 'No'}")
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes

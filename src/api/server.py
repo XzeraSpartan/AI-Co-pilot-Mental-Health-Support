@@ -42,7 +42,9 @@ ALLOWED_ORIGINS = [
     "http://localhost:5173", 
     "https://localhost:5173",
     "http://localhost:3000",
-    "http://localhost:3000/"
+    "http://localhost:3000/",
+    "https://zippy-kitsune-1bbced.netlify.app/",
+    "https://zippy-kitsune-1bbced.netlify.app"
 ]
 
 # Store active conversations

@@ -15,7 +15,8 @@ logger = logging.getLogger(__name__)
 
 # Initialize Together client
 try:
-    together = Together(api_key=TOGETHER_API_KEY)
+    together = Together()
+    together.api_key = TOGETHER_API_KEY
     logger.info("Together client initialized successfully")
 except Exception as e:
     logger.error(f"Failed to initialize Together client: {e}")

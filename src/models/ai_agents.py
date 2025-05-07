@@ -4,11 +4,11 @@ import sys
 import logging
 import time
 from typing import List, Dict, Optional
-from together import Together
+import together as Together
 
 # Add parent directory to path so we can import from src.config
-sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
-from config.config import *
+sys.path.append(os.path.join(os.path.dirname(__file__), '../../'))
+from src.config.config import *
 
 # Set up logging
 logger = logging.getLogger(__name__)

@@ -98,7 +98,7 @@ FEEDBACK_PROMPT_TEMPLATE = """[IMPORTANT: Provide ONLY the analysis in the exact
 Analyze this counseling conversation and provide EXACTLY these four sections:
 
 1. Emotional State:
-[2-3 clear sentences about current emotions]
+[Simple list of emotions, e.g., "Anxious, Sad, Overwhelmed"]
 
 2. Key Concerns:
 - [Specific issue 1]
@@ -115,8 +115,11 @@ Analyze this counseling conversation and provide EXACTLY these four sections:
 - [Specific concern 2]
 - [Specific concern 3]
 
-IMPORTANT: Each question must be a complete sentence ending with a question mark.
-Do not include any section headers in the questions list.
+IMPORTANT: 
+- Keep emotional state as a simple comma-separated list
+- Each question must be a complete sentence ending with a question mark
+- Always provide exactly 3 suggested questions
+- Do not include any section headers in the questions list
 
 Conversation:
 {conversation}

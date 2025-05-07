@@ -10,6 +10,10 @@ import logging
 import sys
 import os
 import traceback
+import eventlet
+
+# Patch eventlet for better WebSocket support
+eventlet.monkey_patch()
 
 # Add parent directory to path so we can import from other packages
 sys.path.append(os.path.join(os.path.dirname(__file__), '../../'))
@@ -28,7 +32,11 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-socketio = SocketIO(app, cors_allowed_origins=ALLOWED_ORIGINS, async_mode='eventlet')
+socketio = SocketIO(app, 
+                   cors_allowed_origins=ALLOWED_ORIGINS,
+                   async_mode='eventlet',
+                   logger=True,
+                   engineio_logger=True)
 
 # Debug middleware to log all requests
 @app.before_request
@@ -42,6 +50,10 @@ def log_request_info():
 ALLOWED_ORIGINS = [
     "https://mentalcopilot.netlify.app",
     "https://mentalcopilot.netlify.app/",
+    "https://cpmhs.harshrajj.com",
+    "https://cpmhs.harshrajj.com/",
+    "https://cpmhs-backup.harshrajj.com",
+    "https://cpmhs-backup.harshrajj.com/",
     "http://localhost:5173", 
     "https://localhost:5173",
     "http://localhost:3000",
@@ -628,11 +640,17 @@ if __name__ == '__main__':
         logger.error(f"Error checking SSL certificates: {e}")
         logger.warning("Running without SSL - CORS may not work in production!")
     
-    # Run the app with SocketIO
-    socketio.run(
-        app,
-        debug=DEBUG_MODE,
-        host='0.0.0.0',
-        port=SERVER_PORT,
-        ssl_context=ssl_context
-    )
+    try:
+        # Run the app with SocketIO
+        socketio.run(
+            app,
+            debug=DEBUG_MODE,
+            host='0.0.0.0',
+            port=SERVER_PORT,
+            ssl_context=ssl_context,
+            use_reloader=False  # Disable reloader in production
+        )
+    except Exception as e:
+        logger.error(f"Failed to start server: {e}")
+        logger.error(traceback.format_exc())
+        sys.exit(1)

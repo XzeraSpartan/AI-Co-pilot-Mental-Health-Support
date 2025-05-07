@@ -13,7 +13,7 @@ import traceback
 # Add parent directory to path so we can import from other packages
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from config.config import *
-from models.ai_agents import simulate_student_turn, simulate_educator_turn, get_mini_ai_feedback, STUDENT_NAME, EDUCATOR_NAME
+from models.ai_agents import simulate_student_turn, simulate_educator_turn, get_mini_ai_feedback, together
 
 # Set up logging
 logging.basicConfig(
@@ -99,13 +99,43 @@ class Conversation:
     def add_event(self, event):
         """Add an event to the conversation."""
         with self.lock:
+            # Add event ID if not present
+            if 'id' not in event:
+                event['id'] = str(uuid.uuid4())
+            
+            # Add timestamp if not present
+            if 'timestamp' not in event:
+                event['timestamp'] = datetime.datetime.utcnow().isoformat()
+            
+            # Add index if not present
+            if 'index' not in event:
+                event['index'] = len(self.events)
+            
+            # Ensure event type is one of: typing, message, feedback
+            if event.get('type') not in ['typing', 'message', 'feedback']:
+                event['type'] = 'message'
+            
+            # For feedback events, ensure analysis and suggestions are present
+            if event.get('type') == 'feedback':
+                if 'analysis' not in event:
+                    event['analysis'] = event.get('feedback', {}).get('analysis', '')
+                if 'suggestions' not in event:
+                    event['suggestions'] = event.get('feedback', {}).get('suggestions', [])
+            
+            # For message events, ensure sender is present
+            if event.get('type') == 'message':
+                if 'sender' not in event:
+                    event['sender'] = event.get('speaker', 'student')
+            
             self.events.append(event)
             
             # If it's a message, add to conversation history
             if event.get('type') == 'message':
                 self.history.append({
                     'speaker': event.get('speaker'),
-                    'text': event.get('text')
+                    'text': event.get('text'),
+                    'id': event['id'],
+                    'timestamp': event['timestamp']
                 })
                 logger.info(f"Message added - {event.get('speaker')}: {event.get('text')[:50]}...")
     
@@ -147,10 +177,10 @@ class Conversation:
             # Send typing indicator
             timestamp = datetime.datetime.utcnow().isoformat()
             typing_event = {
-                "conversation_id": self.conversation_id,
+                "id": str(uuid.uuid4()),
                 "type": "typing",
-                "speaker": "student",
-                "name": STUDENT_NAME,
+                "index": len(self.events),
+                "sender": "student",
                 "timestamp": timestamp
             }
             self.add_event(typing_event)
@@ -162,11 +192,11 @@ class Conversation:
             student_message = simulate_student_turn(self.history)
             timestamp = datetime.datetime.utcnow().isoformat()
             message_event = {
-                "conversation_id": self.conversation_id,
+                "id": str(uuid.uuid4()),
                 "type": "message",
-                "speaker": "student",
-                "name": STUDENT_NAME,
-                "text": student_message,
+                "index": len(self.events),
+                "content": student_message,
+                "sender": "student",
                 "timestamp": timestamp
             }
             self.add_event(message_event)
@@ -176,9 +206,12 @@ class Conversation:
             feedback = get_mini_ai_feedback(self.history)
             timestamp = datetime.datetime.utcnow().isoformat()
             feedback_event = {
-                "conversation_id": self.conversation_id,
+                "id": str(uuid.uuid4()),
                 "type": "feedback",
-                "feedback": feedback,
+                "index": len(self.events),
+                "content": feedback.get('analysis', ''),
+                "analysis": feedback.get('analysis', ''),
+                "suggestions": feedback.get('suggestions', []),
                 "timestamp": timestamp
             }
             self.add_event(feedback_event)
@@ -207,10 +240,10 @@ class Conversation:
             # Send typing indicator
             timestamp = datetime.datetime.utcnow().isoformat()
             typing_event = {
-                "conversation_id": self.conversation_id,
+                "id": str(uuid.uuid4()),
                 "type": "typing",
-                "speaker": "educator",
-                "name": EDUCATOR_NAME,
+                "index": len(self.events),
+                "sender": "educator",
                 "timestamp": timestamp
             }
             self.add_event(typing_event)
@@ -222,11 +255,11 @@ class Conversation:
             educator_message = simulate_educator_turn(self.history, latest_feedback)
             timestamp = datetime.datetime.utcnow().isoformat()
             message_event = {
-                "conversation_id": self.conversation_id,
+                "id": str(uuid.uuid4()),
                 "type": "message",
-                "speaker": "educator",
-                "name": EDUCATOR_NAME,
-                "text": educator_message,
+                "index": len(self.events),
+                "content": educator_message,
+                "sender": "educator",
                 "timestamp": timestamp
             }
             self.add_event(message_event)
@@ -270,9 +303,10 @@ class Conversation:
         transcript = []
         
         for msg in messages:
-            speaker_name = msg.get("name", msg.get("speaker").capitalize())
-            text = msg.get("text", "")
-            transcript.append(f"{speaker_name}: {text}")
+            speaker = msg.get("sender", "student").capitalize()
+            content = msg.get("content", "")
+            timestamp = msg.get("timestamp", "")
+            transcript.append(f"{speaker} ({timestamp}): {content}")
         
         return "\n\n".join(transcript)
 
@@ -284,7 +318,14 @@ class Conversation:
             "message_count": len([e for e in self.events if e.get("type") == "message"]),
             "student_messages": len([e for e in self.events if e.get("type") == "message" and e.get("speaker") == "student"]),
             "educator_messages": len([e for e in self.events if e.get("type") == "message" and e.get("speaker") == "educator"]),
-            "status": "resolved" if self.resolution_detected else "active" if self.running else "ended"
+            "status": "resolved" if self.resolution_detected else "active" if self.running else "ended",
+            "last_activity": self.events[-1]["timestamp"] if self.events else self.created_at.isoformat(),
+            "duration": (datetime.datetime.utcnow() - self.created_at).total_seconds(),
+            "has_feedback": any(e.get("type") == "feedback" for e in self.events),
+            "participants": {
+                "student": STUDENT_NAME,
+                "educator": EDUCATOR_NAME
+            }
         }
 
 @app.route('/api/conversations', methods=['POST'])
@@ -495,12 +536,44 @@ def add_cors_headers(response):
 
 @app.route('/health', methods=['GET'])
 def health_check():
-    """Simple health check endpoint."""
-    return jsonify({
-        'status': 'healthy',
-        'timestamp': datetime.datetime.utcnow().isoformat(),
-        'active_conversations': len(active_conversations)
-    }), 200
+    """Check the health of the server and API connections."""
+    try:
+        # Check if Together client is initialized
+        if together is None:
+            return jsonify({
+                'status': 'degraded',
+                'api_status': 'disconnected',
+                'error': 'Together client not initialized',
+                'active_conversations': len(active_conversations),
+                'timestamp': datetime.datetime.utcnow().isoformat()
+            }), 503
+            
+        # Check if API key is set
+        if not together.api_key:
+            return jsonify({
+                'status': 'degraded',
+                'api_status': 'disconnected',
+                'error': 'Together API key not set',
+                'active_conversations': len(active_conversations),
+                'timestamp': datetime.datetime.utcnow().isoformat()
+            }), 503
+            
+        return jsonify({
+            'status': 'healthy',
+            'api_status': 'connected',
+            'active_conversations': len(active_conversations),
+            'timestamp': datetime.datetime.utcnow().isoformat()
+        })
+        
+    except Exception as e:
+        logger.error(f"Health check failed: {str(e)}")
+        return jsonify({
+            'status': 'degraded',
+            'api_status': 'disconnected',
+            'error': str(e),
+            'active_conversations': len(active_conversations),
+            'timestamp': datetime.datetime.utcnow().isoformat()
+        }), 503
 
 if __name__ == '__main__':
     logger.info("Starting AI Co-Pilot Mental Health Support backend server")

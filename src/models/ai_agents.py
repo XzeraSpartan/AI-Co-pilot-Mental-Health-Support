@@ -4,7 +4,7 @@ import sys
 import logging
 import time
 from typing import List, Dict, Optional
-import together as Together
+from together import Together
 
 # Add parent directory to path so we can import from src.config
 sys.path.append(os.path.join(os.path.dirname(__file__), '../../'))

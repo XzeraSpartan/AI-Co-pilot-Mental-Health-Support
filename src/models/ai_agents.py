@@ -15,8 +15,7 @@ logger = logging.getLogger(__name__)
 
 # Initialize Together client
 try:
-    together = Together()
-    together.api_key = TOGETHER_API_KEY
+    together = Together(api_key=TOGETHER_API_KEY)
     logger.info("Together client initialized successfully")
 except Exception as e:
     logger.error(f"Failed to initialize Together client: {e}")
@@ -34,13 +33,6 @@ def format_conversation_history(history: List[Dict[str, str]]) -> str:
         formatted.append(f"{speaker}: {text}")
     
     return "\n".join(formatted)
-
-def format_feedback(feedback: Dict) -> str:
-    """Format the feedback dictionary into a string."""
-    if not feedback:
-        return "No feedback available."
-    
-    return feedback.get("analysis", "No analysis available.")
 
 def simulate_student_turn(conversation_history: List[Dict[str, str]]) -> str:
     """Simulate the student's turn in the conversation."""
@@ -62,48 +54,33 @@ def simulate_student_turn(conversation_history: List[Dict[str, str]]) -> str:
     
     return response.choices[0].message.content.strip()
 
-def simulate_educator_turn(conversation_history: List[Dict[str, str]], feedback: Optional[Dict] = None) -> str:
-    """Simulate the educator's turn in the conversation."""
-    # Format conversation history
-    history_text = format_conversation_history(conversation_history)
-    
-    # Format feedback
-    feedback_text = format_feedback(feedback) if feedback else "No previous feedback available."
-    
-    # Generate prompt
-    prompt = EDUCATOR_PROMPT_TEMPLATE.format(
-        educator_name=EDUCATOR_NAME,
-        student_name=STUDENT_NAME,
-        conversation_history=history_text,
-        feedback=feedback_text
-    )
-    
-    # Get response from model
-    response = together.chat.completions.create(
-        model=EDUCATOR_MODEL,
-        messages=[{"role": "user", "content": prompt}],
-        max_tokens=200,
-        temperature=0.7,
-        top_k=50,
-        top_p=0.7,
-        repetition_penalty=1.1
-    )
-    
-    return response.choices[0].message.content.strip()
-
 def get_mini_ai_feedback(conversation_history: List[Dict[str, str]]) -> Dict:
-    """Get feedback from the mini AI about the conversation."""
+    """Get feedback and suggestions from the mini AI about the conversation."""
     # Format conversation history
     history_text = format_conversation_history(conversation_history)
     
     # Generate prompt
-    prompt = FEEDBACK_PROMPT_TEMPLATE.format(conversation=history_text)
+    prompt = """Analyze the following conversation between a student and counselor.
+Focus on:
+1. Student's emotional state and key concerns
+2. Potential risk factors
+3. Suggested next questions for the counselor
+
+Provide:
+1. A brief analysis of the student's current state
+2. Three specific, open-ended questions the counselor could ask next
+3. Any warning signs or concerns to address
+
+Conversation:
+{conversation}
+
+Analysis:"""
     
     # Get response from model
     response = together.chat.completions.create(
         model=FEEDBACK_MODEL,
         messages=[{"role": "user", "content": prompt}],
-        max_tokens=150,
+        max_tokens=300,
         temperature=0.7,
         top_k=50,
         top_p=0.7,
@@ -112,7 +89,15 @@ def get_mini_ai_feedback(conversation_history: List[Dict[str, str]]) -> Dict:
     
     analysis = response.choices[0].message.content.strip()
     
+    # Parse the response to extract questions
+    questions = []
+    lines = analysis.split('\n')
+    for line in lines:
+        if line.strip().startswith(('1.', '2.', '3.')):
+            questions.append(line.strip()[2:].strip())
+    
     return {
         "analysis": analysis,
+        "suggested_questions": questions[:3],  # Ensure we only return 3 questions
         "timestamp": time.time()
     } 

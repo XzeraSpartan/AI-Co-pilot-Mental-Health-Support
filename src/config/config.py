@@ -6,7 +6,7 @@ load_dotenv()
 
 # Server Configuration
 DEBUG_MODE = True
-SERVER_PORT = 3000
+SERVER_PORT = 5000
 CORS_PROXY_PORT = 5070
 
 # CORS Configuration

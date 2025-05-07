@@ -31,12 +31,27 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+
+ALLOWED_ORIGINS = [
+    "https://mentalcopilot.netlify.app",
+    "https://mentalcopilot.netlify.app/",
+    "https://cpmhs.harshrajj.com",
+    "https://cpmhs.harshrajj.com/",
+    "https://cpmhs-backup.harshrajj.com",
+    "https://cpmhs-backup.harshrajj.com/",
+    "http://localhost:5173", 
+    "https://localhost:5173",
+    "http://localhost:3000",
+    "http://localhost:3000/"
+]
+
 app = Flask(__name__)
 socketio = SocketIO(app, 
                    cors_allowed_origins=ALLOWED_ORIGINS,
                    async_mode='eventlet',
                    logger=True,
-                   engineio_logger=True)
+                   engineio_logger=True,
+		   path='/ws')
 
 # Debug middleware to log all requests
 @app.before_request
@@ -647,9 +662,9 @@ if __name__ == '__main__':
             debug=DEBUG_MODE,
             host='0.0.0.0',
             port=SERVER_PORT,
-            ssl_context=ssl_context,
-            use_reloader=False  # Disable reloader in production
-        )
+            use_reloader=False,  # Disable reloader in production
+	    **{"certfile": cert_path, "keyfile": key_path}
+)
     except Exception as e:
         logger.error(f"Failed to start server: {e}")
         logger.error(traceback.format_exc())

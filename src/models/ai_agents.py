@@ -51,7 +51,7 @@ def simulate_student_turn(conversation_history: List[Dict[str, str]]) -> str:
     response = together.chat.completions.create(
         model=STUDENT_MODEL,
         messages=[
-            {"role": "system", "content": "You are a student speaking to a counselor. Respond ONLY in character, with NO meta-commentary or thinking process."},
+            {"role": "system", "content": "You are a teenage student speaking to a counselor sharing about your mental health. Respond ONLY in character, with NO meta-commentary or thinking process."},
             {"role": "user", "content": prompt}
         ],
         max_tokens=150,
@@ -75,7 +75,7 @@ def get_mini_ai_feedback(conversation_history: List[Dict[str, str]]) -> Dict:
     response = together.chat.completions.create(
         model=FEEDBACK_MODEL,
         messages=[
-            {"role": "system", "content": "You are an expert counselor providing analysis. Give ONLY the analysis in the specified format, with NO meta-commentary."},
+            {"role": "system", "content": "You are an expert counselor providing analysis. Give ONLY the analysis in the specified format in bullet points, with NO meta-commentary."},
             {"role": "user", "content": prompt}
         ],
         max_tokens=300,
